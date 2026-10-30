@@ -56,8 +56,16 @@ struct SessionView: View {
                 }
                 .accessibilityLabel("Abbrechen")
                 Spacer()
-                Text(timeString(model.remainingSeconds))
-                    .font(.title3.monospacedDigit().bold())
+                HStack(spacing: 6) {
+                    Text(timeString(model.remainingSeconds))
+                        .font(.title3.monospacedDigit().bold())
+                    if model.isIdle {
+                        Label("angehalten", systemImage: "pause.circle.fill")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: model.isIdle)
                 Spacer()
                 Text("\(model.correct)/\(model.solved)")
                     .font(.headline.monospacedDigit())
@@ -104,17 +112,6 @@ struct SessionView: View {
                     .font(.title.bold())
                     .padding()
                     .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 16))
-            } else if model.isIdle {
-                VStack(spacing: 6) {
-                    Label("Uhr angehalten", systemImage: "pause.circle.fill")
-                        .font(.title2.bold())
-                    Text("Die Zeit läuft nur, während du rechnest.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 16))
-                .allowsHitTesting(false)
             }
         }
     }
