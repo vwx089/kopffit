@@ -1,0 +1,5 @@
+KopfFit.xcodeproj/
+build/
+DerivedData/
+*.xcuserstate
+.DS_Store
