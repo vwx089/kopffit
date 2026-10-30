@@ -123,6 +123,13 @@ final class ProgressStore: ObservableObject {
     /// Startlevel für die nächste Übung: ein Level unter dem letzten Ende als Aufwärmen.
     var startLevel: Int { max(1, level - 1) }
 
+    /// Macht den heutigen Tag wieder "offen" und plant die Erinnerungen neu.
+    func resetToday() {
+        history.removeAll { $0.day == Self.dayKey() }
+        save()
+        ReminderScheduler.reschedule(store: self)
+    }
+
     func recordSession(solved: Int, correct: Int, endLevel: Int) {
         let today = Self.dayKey()
         if let i = history.firstIndex(where: { $0.day == today }) {

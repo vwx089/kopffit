@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: ProgressStore
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmReset = false
 
     var body: some View {
         NavigationStack {
@@ -26,15 +27,19 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Damit die Erinnerungen auch im Fokus-Modus durchkommen: Einstellungen › Mitteilungen › KopfFit › „Dringliche Mitteilungen“ einschalten.")
-                    Button("Mitteilungs-Einstellungen öffnen") {
-                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        }
+                    Button("Heutige Übung zurücksetzen", role: .destructive) {
+                        confirmReset = true
                     }
+                    .disabled(!store.doneToday)
                 } header: {
-                    Text("Noch penetranter")
+                    Text("Heute")
+                } footer: {
+                    Text("Setzt den heutigen Tag auf „offen“. Die Erinnerungen starten wieder, die Serie zählt heute erst nach einer neuen Runde.")
                 }
+            }
+            .confirmationDialog("Heutige Übung zurücksetzen?", isPresented: $confirmReset, titleVisibility: .visible) {
+                Button("Zurücksetzen", role: .destructive) { store.resetToday() }
+                Button("Abbrechen", role: .cancel) {}
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
