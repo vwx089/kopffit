@@ -64,7 +64,7 @@ struct SessionView: View {
                     .foregroundStyle(.secondary)
             }
             ProgressView(value: model.progress)
-                .tint(.accentColor)
+                .tint(model.isIdle ? .orange : .accentColor)
             Text("Level \(model.level) · \(ProblemGenerator.levelNames[model.level] ?? "")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -104,6 +104,17 @@ struct SessionView: View {
                     .font(.title.bold())
                     .padding()
                     .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 16))
+            } else if model.isIdle {
+                VStack(spacing: 6) {
+                    Label("Uhr angehalten", systemImage: "pause.circle.fill")
+                        .font(.title2.bold())
+                    Text("Die Zeit läuft nur, während du rechnest.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(false)
             }
         }
     }

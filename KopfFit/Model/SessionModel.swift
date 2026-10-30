@@ -19,6 +19,11 @@ final class SessionModel: ObservableObject {
     @Published private(set) var level: Int
     @Published private(set) var finished = false
     @Published var isPaused = false
+    /// Wird nach einigen Sekunden ohne Eingabe gesetzt: Dann läuft die Uhr nicht weiter.
+    @Published private(set) var isIdle = false
+
+    /// Nach so vielen Sekunden ohne Eingabe hält der Timer an.
+    static let idleLimit: TimeInterval = 15
 
     let totalSeconds: Int
     let startLevel: Int
@@ -28,6 +33,7 @@ final class SessionModel: ObservableObject {
     private var fastCorrectInRow = 0
     private var wrongInRow = 0
     private var problemShownAt = Date()
+    private var lastActivityAt = Date()
     private var timerTask: Task<Void, Never>?
 
     init(minutes: Int, startLevel: Int) {
@@ -50,6 +56,9 @@ final class SessionModel: ObservableObject {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self else { return }
                 if self.isPaused || self.finished { continue }
+                self.isIdle = self.feedback == nil
+                    && Date().timeIntervalSince(self.lastActivityAt) > Self.idleLimit
+                if self.isIdle { continue }
                 self.remainingSeconds -= 1
                 if self.remainingSeconds <= 0 {
                     self.finish()
@@ -68,6 +77,7 @@ final class SessionModel: ObservableObject {
 
     func type(_ digit: Int) {
         guard feedback == nil, !finished, !isPaused, input.count < 6 else { return }
+        markActivity()
         input.append(String(digit))
         // Automatisch prüfen, sobald so viele Ziffern wie im Ergebnis eingegeben sind.
         if input.count >= problem.answerDigits {
@@ -76,13 +86,20 @@ final class SessionModel: ObservableObject {
     }
 
     func deleteLast() {
+        markActivity()
         guard feedback == nil, !input.isEmpty else { return }
         input.removeLast()
     }
 
     func skip() {
+        markActivity()
         guard feedback == nil, !finished else { return }
         evaluate(isCorrect: false)
+    }
+
+    private func markActivity() {
+        lastActivityAt = Date()
+        isIdle = false
     }
 
     private func submit() {
@@ -135,6 +152,7 @@ final class SessionModel: ObservableObject {
         input = ""
         feedback = nil
         problemShownAt = Date()
+        lastActivityAt = Date()
     }
 
     private func finish() {
