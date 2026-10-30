@@ -48,7 +48,7 @@ GitHub baut eine unsignierte `KopfFit.ipa`, legt ein Release an und erzeugt `sou
 SideStore-Quelle (einmalig in SideStore › Sources › + hinzufügen):
 
 ```
-https://github.com/<OWNER>/kopffit/releases/latest/download/source.json
+https://github.com/vwx089/kopffit/releases/latest/download/source.json
 ```
 
 Das Repository muss **öffentlich** sein, damit SideStore die Dateien ohne Anmeldung laden kann.
