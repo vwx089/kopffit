@@ -7,7 +7,8 @@ struct SessionView: View {
     @State private var confirmAbort = false
 
     init(minutes: Int, startLevel: Int) {
-        _model = StateObject(wrappedValue: SessionModel(minutes: minutes, startLevel: startLevel))
+        _model = StateObject(wrappedValue: SessionModel(
+            minutes: minutes, startLevel: startLevel, startSpan: ProgressStore.shared.startSpan))
     }
 
     var body: some View {
@@ -73,7 +74,9 @@ struct SessionView: View {
             }
             ProgressView(value: model.progress)
                 .tint(model.isIdle ? .orange : .accentColor)
-            Text("Level \(model.level) · \(ProblemGenerator.levelNames[model.level] ?? "")")
+            Text(model.mode == .memory
+                 ? "Zahlen merken · \(model.span) Ziffern"
+                 : "Level \(model.level) · \(ProblemGenerator.levelNames[model.level] ?? "")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -82,19 +85,33 @@ struct SessionView: View {
 
     private var problemArea: some View {
         VStack(spacing: 24) {
-            Text(model.problem.text)
-                .font(.system(size: 52, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .padding(.horizontal)
+            Group {
+                if model.mode == .memory {
+                    if let digit = model.memoryVisibleDigit {
+                        Text(digit.isEmpty ? " " : digit)
+                    } else {
+                        Text("Eintippen")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text(model.problem.text)
+                }
+            }
+            .font(.system(size: 52, weight: .bold, design: .rounded))
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+            .padding(.horizontal)
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(answerBackground)
-                    .frame(width: 200, height: 76)
+                    .frame(minWidth: 200, maxWidth: 320, minHeight: 76, maxHeight: 76)
                 Text(answerText)
                     .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(answerForeground)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
             }
             .animation(.easeOut(duration: 0.15), value: model.feedback)
 
@@ -117,6 +134,7 @@ struct SessionView: View {
     }
 
     private var answerText: String {
+        if model.isShowingSequence { return "Merken…" }
         if model.input.isEmpty && model.feedback == nil { return "?" }
         return model.input.isEmpty ? "–" : model.input
     }

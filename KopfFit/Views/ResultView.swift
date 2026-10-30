@@ -20,6 +20,9 @@ struct ResultView: View {
                 row("Aufgaben gelöst", "\(model.solved)")
                 row("Davon richtig", "\(model.correct) (\(model.accuracy) %)")
                 row("Level", levelChange)
+                if model.bestSpan > 0 {
+                    row("Zahlen gemerkt", "bis \(model.bestSpan) Ziffern")
+                }
                 row("Serie", "\(store.currentStreak) \(store.currentStreak == 1 ? "Tag" : "Tage") 🔥")
             }
             .padding()

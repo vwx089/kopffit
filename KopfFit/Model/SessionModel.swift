@@ -3,12 +3,15 @@ import SwiftUI
 import UIKit
 
 /// Steuert eine laufende Übung: Timer, aktuelle Aufgabe, Eingabe und adaptive Schwierigkeit.
+/// Die ersten 60 % der Zeit wird gerechnet, danach folgt der Block "Zahlen merken".
 @MainActor
 final class SessionModel: ObservableObject {
     enum Feedback: Equatable {
         case correct
-        case wrong(correctAnswer: Int)
+        case wrong(correctAnswer: String)
     }
+
+    enum Mode { case arithmetic, memory }
 
     @Published private(set) var problem: Problem
     @Published private(set) var input = ""
@@ -21,6 +24,22 @@ final class SessionModel: ObservableObject {
     @Published var isPaused = false
     /// Wird nach einigen Sekunden ohne Eingabe gesetzt: Dann läuft die Uhr nicht weiter.
     @Published private(set) var isIdle = false
+
+    // Zahlen merken
+    @Published private(set) var mode: Mode = .arithmetic
+    /// Ziffer, die gerade eingeblendet wird ("" = kurze Lücke). nil: Eingabephase.
+    @Published private(set) var memoryVisibleDigit: String?
+    @Published private(set) var span: Int
+    @Published private(set) var bestSpan = 0
+    private var memoryDigits = ""
+    private var memoryCorrectInRow = 0
+    private var memoryWrongInRow = 0
+    private var showTask: Task<Void, Never>?
+    static let minSpan = 3
+    static let maxSpan = 12
+
+    /// Ab dieser Restzeit (Sekunden) wird von Rechnen auf Zahlen merken umgeschaltet.
+    private var memoryStartsAt: Int { totalSeconds * 2 / 5 }
 
     /// Nach so vielen Sekunden ohne Eingabe hält der Timer an.
     static let idleLimit: TimeInterval = 15
@@ -36,7 +55,8 @@ final class SessionModel: ObservableObject {
     private var lastActivityAt = Date()
     private var timerTask: Task<Void, Never>?
 
-    init(minutes: Int, startLevel: Int) {
+    init(minutes: Int, startLevel: Int, startSpan: Int) {
+        span = startSpan
         totalSeconds = minutes * 60
         remainingSeconds = minutes * 60
         self.startLevel = startLevel
@@ -56,7 +76,7 @@ final class SessionModel: ObservableObject {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self else { return }
                 if self.isPaused || self.finished { continue }
-                self.isIdle = self.feedback == nil
+                self.isIdle = self.feedback == nil && !self.isShowingSequence
                     && Date().timeIntervalSince(self.lastActivityAt) > Self.idleLimit
                 if self.isIdle { continue }
                 self.remainingSeconds -= 1
@@ -71,16 +91,22 @@ final class SessionModel: ObservableObject {
     func stop() {
         timerTask?.cancel()
         timerTask = nil
+        showTask?.cancel()
     }
+
+    var isShowingSequence: Bool { memoryVisibleDigit != nil }
+
+    /// Wie viele Ziffern die erwartete Antwort hat.
+    private var expectedLength: Int { mode == .memory ? memoryDigits.count : problem.answerDigits }
 
     // MARK: - Eingabe
 
     func type(_ digit: Int) {
-        guard feedback == nil, !finished, !isPaused, input.count < 6 else { return }
+        guard feedback == nil, !finished, !isPaused, !isShowingSequence, input.count < 12 else { return }
         markActivity()
         input.append(String(digit))
         // Automatisch prüfen, sobald so viele Ziffern wie im Ergebnis eingegeben sind.
-        if input.count >= problem.answerDigits {
+        if input.count >= expectedLength {
             submit()
         }
     }
@@ -93,7 +119,7 @@ final class SessionModel: ObservableObject {
 
     func skip() {
         markActivity()
-        guard feedback == nil, !finished else { return }
+        guard feedback == nil, !finished, !isShowingSequence else { return }
         evaluate(isCorrect: false)
     }
 
@@ -103,10 +129,18 @@ final class SessionModel: ObservableObject {
     }
 
     private func submit() {
-        evaluate(isCorrect: Int(input) == problem.answer)
+        if mode == .memory {
+            evaluate(isCorrect: input == memoryDigits)
+        } else {
+            evaluate(isCorrect: Int(input) == problem.answer)
+        }
     }
 
     private func evaluate(isCorrect: Bool) {
+        if mode == .memory {
+            evaluateMemory(isCorrect: isCorrect)
+            return
+        }
         solved += 1
         let elapsed = Date().timeIntervalSince(problemShownAt)
 
@@ -124,7 +158,7 @@ final class SessionModel: ObservableObject {
         } else {
             fastCorrectInRow = 0
             wrongInRow += 1
-            feedback = .wrong(correctAnswer: problem.answer)
+            feedback = .wrong(correctAnswer: String(problem.answer))
             Haptics.error()
         }
 
@@ -145,6 +179,10 @@ final class SessionModel: ObservableObject {
 
     private func nextProblem() {
         guard !finished else { return }
+        if mode == .memory || remainingSeconds <= memoryStartsAt {
+            startMemoryRound()
+            return
+        }
         var next = ProblemGenerator.make(level: level)
         // Nicht zweimal hintereinander dieselbe Aufgabe.
         while next == problem { next = ProblemGenerator.make(level: level) }
@@ -155,11 +193,77 @@ final class SessionModel: ObservableObject {
         lastActivityAt = Date()
     }
 
+    // MARK: - Zahlen merken
+
+    /// Zeigt eine Zahlenreihe Ziffer für Ziffer, danach wird sie eingetippt.
+    private func startMemoryRound() {
+        mode = .memory
+        input = ""
+        feedback = nil
+        var digits = ""
+        while digits.count < span {
+            let d = String(Int.random(in: 0...9))
+            if digits.last.map({ String($0) }) != d { digits += d }
+        }
+        memoryDigits = digits
+        memoryVisibleDigit = ""
+        markActivity()
+
+        showTask?.cancel()
+        showTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            for d in digits {
+                guard let self, !Task.isCancelled else { return }
+                self.memoryVisibleDigit = String(d)
+                self.markActivity()
+                try? await Task.sleep(for: .milliseconds(800))
+                self.memoryVisibleDigit = ""
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.memoryVisibleDigit = nil
+            self.problemShownAt = Date()
+            self.markActivity()
+        }
+    }
+
+    // Nach 2 richtigen Reihen in Folge eine Ziffer mehr, nach 2 falschen eine weniger.
+    private func evaluateMemory(isCorrect: Bool) {
+        solved += 1
+        if isCorrect {
+            correct += 1
+            bestSpan = max(bestSpan, span)
+            memoryWrongInRow = 0
+            memoryCorrectInRow += 1
+            feedback = .correct
+            Haptics.success()
+        } else {
+            memoryCorrectInRow = 0
+            memoryWrongInRow += 1
+            feedback = .wrong(correctAnswer: memoryDigits)
+            Haptics.error()
+        }
+
+        if memoryCorrectInRow >= 2 && span < Self.maxSpan {
+            span += 1
+            memoryCorrectInRow = 0
+        } else if memoryWrongInRow >= 2 && span > Self.minSpan {
+            span -= 1
+            memoryWrongInRow = 0
+        }
+
+        let delay: Duration = isCorrect ? .milliseconds(600) : .milliseconds(2000)
+        Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.nextProblem()
+        }
+    }
+
     private func finish() {
         finished = true
         stop()
         Haptics.success()
-        ProgressStore.shared.recordSession(solved: solved, correct: correct, endLevel: level)
+        ProgressStore.shared.recordSession(solved: solved, correct: correct, endLevel: level, endSpan: span)
     }
 }
 

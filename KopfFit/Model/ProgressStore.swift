@@ -27,6 +27,8 @@ final class ProgressStore: ObservableObject {
 
     @Published private(set) var history: [DayRecord] = []
     @Published private(set) var level: Int = 1
+    /// Länge der Zahlenreihe beim "Zahlen merken".
+    @Published private(set) var memorySpan: Int = 4
     @Published var settings = ReminderSettings() {
         didSet { save(); ReminderScheduler.reschedule(store: self) }
     }
@@ -40,6 +42,7 @@ final class ProgressStore: ObservableObject {
         var history: [DayRecord]
         var level: Int
         var settings: ReminderSettings
+        var memorySpan: Int?
     }
 
     private init() {
@@ -48,11 +51,12 @@ final class ProgressStore: ObservableObject {
             history = state.history
             level = state.level
             settings = state.settings
+            memorySpan = state.memorySpan ?? 4
         }
     }
 
     private func save() {
-        let state = Persisted(history: history, level: level, settings: settings)
+        let state = Persisted(history: history, level: level, settings: settings, memorySpan: memorySpan)
         if let data = try? JSONEncoder().encode(state) {
             defaults.set(data, forKey: key)
         }
@@ -123,6 +127,8 @@ final class ProgressStore: ObservableObject {
     /// Startlevel für die nächste Übung: ein Level unter dem letzten Ende als Aufwärmen.
     var startLevel: Int { max(1, level - 1) }
 
+    var startSpan: Int { max(SessionModel.minSpan, memorySpan - 1) }
+
     /// Macht den heutigen Tag wieder "offen" und plant die Erinnerungen neu.
     func resetToday() {
         history.removeAll { $0.day == Self.dayKey() }
@@ -130,7 +136,8 @@ final class ProgressStore: ObservableObject {
         ReminderScheduler.reschedule(store: self)
     }
 
-    func recordSession(solved: Int, correct: Int, endLevel: Int) {
+    func recordSession(solved: Int, correct: Int, endLevel: Int, endSpan: Int) {
+        memorySpan = endSpan
         let today = Self.dayKey()
         if let i = history.firstIndex(where: { $0.day == today }) {
             history[i].solved += solved
