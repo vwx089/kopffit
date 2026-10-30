@@ -8,7 +8,7 @@ Tägliches Kopfrechnen (Standard 5 Minuten) mit Erinnerungen, die so lange nerve
 - **Ziffernblock mit Auto-Prüfung**: Sobald so viele Ziffern eingetippt sind wie das Ergebnis hat, wird geprüft. Kein Enter nötig.
 - **5-Minuten-Timer**, der nur läuft, solange die App offen ist. Wegwischen pausiert ihn. Abbrechen ist möglich, aber dann zählt der Tag nicht.
 - **Serie (Streak)**, Rekord und die letzten 7 Tage auf dem Startbildschirm.
-- **Penetrante Erinnerungen**: Von 9 bis 22 Uhr alle 30 Minuten (einstellbar), als „dringliche Mitteilung“ (Time Sensitive), die auch durch Fokus-Modi kommt, wenn du das erlaubst. Die Texte werden im Laufe des Tages deutlicher, die letzte warnt vor dem Verlust der Serie. Ein Tipp auf die Mitteilung startet die Übung sofort. Ist die Übung erledigt, ist für den Tag Ruhe.
+- **Penetrante Erinnerungen**: Von 9 bis 22 Uhr alle 30 Minuten (einstellbar), Texte werden im Laufe des Tages deutlicher, die letzte warnt vor dem Verlust der Serie. Ein Tipp auf die Mitteilung startet die Übung sofort. Ist die Übung erledigt, ist für den Tag Ruhe.
 
 ## Projekt erzeugen (auf dem Mac)
 
