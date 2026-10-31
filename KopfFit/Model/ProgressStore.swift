@@ -136,15 +136,14 @@ final class ProgressStore: ObservableObject {
         ReminderScheduler.reschedule(store: self)
     }
 
-    func recordSession(solved: Int, correct: Int, endLevel: Int, endSpan: Int) {
+    func recordSession(day: String, solved: Int, correct: Int, endLevel: Int, endSpan: Int) {
         memorySpan = endSpan
-        let today = Self.dayKey()
-        if let i = history.firstIndex(where: { $0.day == today }) {
+        if let i = history.firstIndex(where: { $0.day == day }) {
             history[i].solved += solved
             history[i].correct += correct
             history[i].endLevel = endLevel
         } else {
-            history.append(DayRecord(day: today, solved: solved, correct: correct, endLevel: endLevel))
+            history.append(DayRecord(day: day, solved: solved, correct: correct, endLevel: endLevel))
         }
         level = endLevel
         save()

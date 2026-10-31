@@ -45,6 +45,8 @@ final class SessionModel: ObservableObject {
     static let idleLimit: TimeInterval = 15
 
     let totalSeconds: Int
+    /// Der Tag, an dem die Übung gestartet wurde. Für ihn zählt die Runde, auch wenn sie nach Mitternacht endet.
+    private(set) var startedDay = ProgressStore.dayKey()
     let startLevel: Int
 
     // Adaptivität: nach 4 schnellen richtigen Antworten in Folge eine Stufe hoch,
@@ -70,6 +72,7 @@ final class SessionModel: ObservableObject {
 
     func start() {
         guard timerTask == nil else { return }
+        startedDay = ProgressStore.dayKey()
         problemShownAt = Date()
         timerTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -263,7 +266,7 @@ final class SessionModel: ObservableObject {
         finished = true
         stop()
         Haptics.success()
-        ProgressStore.shared.recordSession(solved: solved, correct: correct, endLevel: level, endSpan: span)
+        ProgressStore.shared.recordSession(day: startedDay, solved: solved, correct: correct, endLevel: level, endSpan: span)
     }
 }
 
