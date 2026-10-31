@@ -22,6 +22,10 @@ struct HomeView: View {
             }
             .navigationTitle("KopfFit")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink { StatsView() } label: { Image(systemName: "chart.xyaxis.line") }
+                        .accessibilityLabel("Statistik")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Einstellungen")

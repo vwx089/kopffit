@@ -7,6 +7,20 @@ struct DayRecord: Codable, Identifiable, Equatable {
     var solved: Int
     var correct: Int
     var endLevel: Int
+    // Seit 1.0.7 für die Statistik (bei älteren Einträgen nil):
+    var arithmeticSolved: Int?
+    var arithmeticSeconds: Double?
+    var bestSpan: Int?
+
+    var date: Date? { ProgressStore.date(fromKey: day) }
+
+    /// Durchschnittliche Sekunden pro Rechenaufgabe.
+    var secondsPerProblem: Double? {
+        guard let n = arithmeticSolved, n > 0, let s = arithmeticSeconds else { return nil }
+        return s / Double(n)
+    }
+
+    var accuracy: Double? { solved > 0 ? Double(correct) / Double(solved) * 100 : nil }
 }
 
 struct ReminderSettings: Codable, Equatable {
@@ -69,6 +83,12 @@ final class ProgressStore: ObservableObject {
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
+    static func date(fromKey key: String) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return Calendar.current.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
     var completedDays: Set<String> { Set(history.map(\.day)) }
 
     var doneToday: Bool { completedDays.contains(Self.dayKey()) }
@@ -93,11 +113,7 @@ final class ProgressStore: ObservableObject {
 
     var bestStreak: Int {
         let cal = Calendar.current
-        let dates = completedDays.compactMap { key -> Date? in
-            let parts = key.split(separator: "-").compactMap { Int($0) }
-            guard parts.count == 3 else { return nil }
-            return cal.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
-        }.sorted()
+        let dates = completedDays.compactMap(Self.date(fromKey:)).sorted()
         var best = 0, run = 0
         var previous: Date?
         for d in dates {
@@ -136,14 +152,20 @@ final class ProgressStore: ObservableObject {
         ReminderScheduler.reschedule(store: self)
     }
 
-    func recordSession(day: String, solved: Int, correct: Int, endLevel: Int, endSpan: Int) {
+    func recordSession(day: String, solved: Int, correct: Int, endLevel: Int, endSpan: Int,
+                       arithmeticSolved: Int, arithmeticSeconds: Double, bestSpan: Int) {
         memorySpan = endSpan
         if let i = history.firstIndex(where: { $0.day == day }) {
             history[i].solved += solved
             history[i].correct += correct
             history[i].endLevel = endLevel
+            history[i].arithmeticSolved = (history[i].arithmeticSolved ?? 0) + arithmeticSolved
+            history[i].arithmeticSeconds = (history[i].arithmeticSeconds ?? 0) + arithmeticSeconds
+            history[i].bestSpan = max(history[i].bestSpan ?? 0, bestSpan)
         } else {
-            history.append(DayRecord(day: day, solved: solved, correct: correct, endLevel: endLevel))
+            history.append(DayRecord(day: day, solved: solved, correct: correct, endLevel: endLevel,
+                                     arithmeticSolved: arithmeticSolved, arithmeticSeconds: arithmeticSeconds,
+                                     bestSpan: bestSpan))
         }
         level = endLevel
         save()

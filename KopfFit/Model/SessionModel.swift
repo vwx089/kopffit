@@ -55,6 +55,9 @@ final class SessionModel: ObservableObject {
     private var wrongInRow = 0
     private var problemShownAt = Date()
     private var lastActivityAt = Date()
+    // Für die Statistik: gelöste Rechenaufgaben und die dafür gebrauchte Zeit.
+    private var arithmeticSolved = 0
+    private var arithmeticSeconds: Double = 0
     private var timerTask: Task<Void, Never>?
 
     init(minutes: Int, startLevel: Int, startSpan: Int) {
@@ -146,6 +149,9 @@ final class SessionModel: ObservableObject {
         }
         solved += 1
         let elapsed = Date().timeIntervalSince(problemShownAt)
+        arithmeticSolved += 1
+        // Lange Pausen nicht mitzählen, sonst verfälscht eine Unterbrechung das Tempo.
+        arithmeticSeconds += min(elapsed, Self.idleLimit)
 
         if isCorrect {
             correct += 1
@@ -266,7 +272,8 @@ final class SessionModel: ObservableObject {
         finished = true
         stop()
         Haptics.success()
-        ProgressStore.shared.recordSession(day: startedDay, solved: solved, correct: correct, endLevel: level, endSpan: span)
+        ProgressStore.shared.recordSession(day: startedDay, solved: solved, correct: correct, endLevel: level, endSpan: span,
+            arithmeticSolved: arithmeticSolved, arithmeticSeconds: arithmeticSeconds, bestSpan: bestSpan)
     }
 }
 
