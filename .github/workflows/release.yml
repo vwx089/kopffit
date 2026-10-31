@@ -34,12 +34,14 @@ jobs:
 
       - name: Bauen (unsigniert, SideStore signiert beim Installieren)
         run: |
+          set -o pipefail
           xcodebuild -project KopfFit.xcodeproj -scheme KopfFit \
             -configuration Release -sdk iphoneos -derivedDataPath build \
             MARKETING_VERSION=${{ steps.version.outputs.version }} \
             CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | tail -n 30
-          test -d build/Build/Products/Release-iphoneos/KopfFit.app
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | tail -n 60
+          # Sicherheitsnetz: ohne fertige App-Datei kein Release.
+          test -f build/Build/Products/Release-iphoneos/KopfFit.app/KopfFit
 
       - name: IPA packen
         run: |
