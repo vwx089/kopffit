@@ -58,10 +58,16 @@ final class SessionModel: ObservableObject {
     // Für die Statistik: gelöste Rechenaufgaben und die dafür gebrauchte Zeit.
     private var arithmeticSolved = 0
     private var arithmeticSeconds: Double = 0
+    // Für das Journal
+    private var startedAt = Date()
+    private var idleSeconds = 0
+    private var pausedSeconds = 0
+    private let startSpan: Int
     private var timerTask: Task<Void, Never>?
 
     init(minutes: Int, startLevel: Int, startSpan: Int) {
         span = startSpan
+        self.startSpan = startSpan
         totalSeconds = minutes * 60
         remainingSeconds = minutes * 60
         self.startLevel = startLevel
@@ -76,15 +82,17 @@ final class SessionModel: ObservableObject {
     func start() {
         guard timerTask == nil else { return }
         startedDay = ProgressStore.dayKey()
+        startedAt = Date()
         problemShownAt = Date()
         timerTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self else { return }
-                if self.isPaused || self.finished { continue }
+                if self.finished { continue }
+                if self.isPaused { self.pausedSeconds += 1; continue }
                 self.isIdle = self.feedback == nil && !self.isShowingSequence
                     && Date().timeIntervalSince(self.lastActivityAt) > Self.idleLimit
-                if self.isIdle { continue }
+                if self.isIdle { self.idleSeconds += 1; continue }
                 self.remainingSeconds -= 1
                 if self.remainingSeconds <= 0 {
                     self.finish()
@@ -126,7 +134,7 @@ final class SessionModel: ObservableObject {
     func skip() {
         markActivity()
         guard feedback == nil, !finished, !isShowingSequence else { return }
-        evaluate(isCorrect: false)
+        evaluate(isCorrect: false, skipped: true)
     }
 
     private func markActivity() {
@@ -142,8 +150,19 @@ final class SessionModel: ObservableObject {
         }
     }
 
-    private func evaluate(isCorrect: Bool) {
-        if mode == .memory {
+    private func evaluate(isCorrect: Bool, skipped: Bool = false) {
+        let isMemory = mode == .memory
+        Journal.append(AttemptLog(
+            time: Date(), day: startedDay,
+            mode: isMemory ? "memory" : "arithmetic",
+            level: level, span: isMemory ? span : nil,
+            task: isMemory ? memoryDigits : problem.text,
+            expected: isMemory ? memoryDigits : String(problem.answer),
+            given: input, correct: isCorrect, skipped: skipped,
+            seconds: Date().timeIntervalSince(problemShownAt)
+        ), to: Journal.attemptsFile)
+
+        if isMemory {
             evaluateMemory(isCorrect: isCorrect)
             return
         }
@@ -272,6 +291,12 @@ final class SessionModel: ObservableObject {
         finished = true
         stop()
         Haptics.success()
+        Journal.append(SessionLog(
+            day: startedDay, started: startedAt, ended: Date(),
+            plannedMinutes: totalSeconds / 60, idleSeconds: idleSeconds, pausedSeconds: pausedSeconds,
+            solved: solved, correct: correct,
+            startLevel: startLevel, endLevel: level, startSpan: startSpan, endSpan: span
+        ), to: Journal.sessionsFile)
         ProgressStore.shared.recordSession(day: startedDay, solved: solved, correct: correct, endLevel: level, endSpan: span,
             arithmeticSolved: arithmeticSolved, arithmeticSeconds: arithmeticSeconds, bestSpan: bestSpan)
     }
