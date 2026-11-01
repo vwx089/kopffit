@@ -13,7 +13,8 @@ struct AttemptLog: Codable {
     let given: String
     let correct: Bool
     let skipped: Bool
-    let seconds: Double      // Zeit vom Erscheinen bis zur Antwort
+    let seconds: Double      // Zeit vom Erscheinen bis zur Antwort (ohne Tipp-Lesezeit)
+    var hint: Bool? = nil    // Tipp angesehen (nur "arithmetic", fehlt bei alten Einträgen)
 }
 
 /// Zusammenfassung einer kompletten Runde.
@@ -30,6 +31,8 @@ struct SessionLog: Codable {
     let endLevel: Int
     let startSpan: Int
     let endSpan: Int
+    var hintsUsed: Int? = nil   // Aufgaben, bei denen ein Tipp angesehen wurde
+    var hintSeconds: Int? = nil // Sekunden mit offenem Tipp (Uhr stand)
 }
 
 /// Hängt Einträge zeilenweise (JSON Lines) an Dateien in "Application Support" an.

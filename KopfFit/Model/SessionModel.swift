@@ -24,6 +24,13 @@ final class SessionModel: ObservableObject {
     @Published var isPaused = false
     /// Wird nach einigen Sekunden ohne Eingabe gesetzt: Dann läuft die Uhr nicht weiter.
     @Published private(set) var isIdle = false
+    /// Tipp-Fenster ist offen: Die Uhr steht so lange.
+    @Published private(set) var isShowingHint = false
+    /// Für die aktuelle Aufgabe wurde ein Tipp angesehen.
+    private var usedHint = false
+    private var hintOpenedAt: Date?
+    private var hintsUsed = 0
+    private var hintSeconds = 0
 
     // Zahlen merken
     @Published private(set) var mode: Mode = .arithmetic
@@ -90,6 +97,7 @@ final class SessionModel: ObservableObject {
                 guard let self else { return }
                 if self.finished { continue }
                 if self.isPaused { self.pausedSeconds += 1; continue }
+                if self.isShowingHint { self.hintSeconds += 1; continue }
                 self.isIdle = self.feedback == nil && !self.isShowingSequence
                     && Date().timeIntervalSince(self.lastActivityAt) > Self.idleLimit
                 if self.isIdle { self.idleSeconds += 1; continue }
@@ -137,6 +145,29 @@ final class SessionModel: ObservableObject {
         evaluate(isCorrect: false, skipped: true)
     }
 
+    // MARK: - Tipps
+
+    var canShowHint: Bool { mode == .arithmetic && feedback == nil && !finished }
+
+    func showHint() {
+        guard canShowHint, !isShowingHint else { return }
+        if !usedHint { hintsUsed += 1 }
+        usedHint = true
+        hintOpenedAt = Date()
+        isShowingHint = true
+    }
+
+    func hideHint() {
+        guard isShowingHint else { return }
+        // Lesezeit nicht als Rechenzeit werten.
+        if let opened = hintOpenedAt {
+            problemShownAt = problemShownAt.addingTimeInterval(Date().timeIntervalSince(opened))
+        }
+        hintOpenedAt = nil
+        isShowingHint = false
+        markActivity()
+    }
+
     private func markActivity() {
         lastActivityAt = Date()
         isIdle = false
@@ -159,7 +190,8 @@ final class SessionModel: ObservableObject {
             task: isMemory ? memoryDigits : problem.text,
             expected: isMemory ? memoryDigits : String(problem.answer),
             given: input, correct: isCorrect, skipped: skipped,
-            seconds: Date().timeIntervalSince(problemShownAt)
+            seconds: Date().timeIntervalSince(problemShownAt),
+            hint: isMemory ? nil : usedHint
         ), to: Journal.attemptsFile)
 
         if isMemory {
@@ -176,7 +208,10 @@ final class SessionModel: ObservableObject {
             correct += 1
             wrongInRow = 0
             // "Schnell" heißt: unter 4 Sekunden plus 2 Sekunden pro Stufe.
-            if elapsed < 4 + Double(level) * 2 {
+            // Mit Tipp gelöst zählt nicht für den Aufstieg, aber auch nicht dagegen.
+            if usedHint {
+                // Serie bleibt stehen
+            } else if elapsed < 4 + Double(level) * 2 {
                 fastCorrectInRow += 1
             } else {
                 fastCorrectInRow = 0
@@ -215,6 +250,7 @@ final class SessionModel: ObservableObject {
         // Nicht zweimal hintereinander dieselbe Aufgabe.
         while next == problem { next = ProblemGenerator.make(level: level) }
         problem = next
+        usedHint = false
         input = ""
         feedback = nil
         problemShownAt = Date()
@@ -295,7 +331,8 @@ final class SessionModel: ObservableObject {
             day: startedDay, started: startedAt, ended: Date(),
             plannedMinutes: totalSeconds / 60, idleSeconds: idleSeconds, pausedSeconds: pausedSeconds,
             solved: solved, correct: correct,
-            startLevel: startLevel, endLevel: level, startSpan: startSpan, endSpan: span
+            startLevel: startLevel, endLevel: level, startSpan: startSpan, endSpan: span,
+            hintsUsed: hintsUsed, hintSeconds: hintSeconds
         ), to: Journal.sessionsFile)
         ProgressStore.shared.recordSession(day: startedDay, solved: solved, correct: correct, endLevel: level, endSpan: span,
             arithmeticSolved: arithmeticSolved, arithmeticSeconds: arithmeticSeconds, bestSpan: bestSpan)

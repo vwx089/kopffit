@@ -47,6 +47,14 @@ struct SessionView: View {
         } message: {
             Text("Nur eine komplette Runde zählt. Die Erinnerungen gehen weiter.")
         }
+        .sheet(isPresented: Binding(
+            get: { model.isShowingHint },
+            set: { if !$0 { model.hideHint() } }
+        )) {
+            HintSheet(problem: model.problem) { model.hideHint() }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private var header: some View {
@@ -101,6 +109,21 @@ struct SessionView: View {
             .minimumScaleFactor(0.5)
             .lineLimit(1)
             .padding(.horizontal)
+
+            if model.mode == .arithmetic {
+                Button { model.showHint() } label: {
+                    Label("Tipp", systemImage: "lightbulb.fill")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.yellow.opacity(0.2), in: Capsule())
+                        .foregroundStyle(.orange)
+                }
+                .buttonStyle(.plain)
+                .disabled(!model.canShowHint)
+                .opacity(model.canShowHint ? 1 : 0.4)
+                .accessibilityLabel("Tipp zur Aufgabe anzeigen")
+            }
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
@@ -193,5 +216,91 @@ struct Keypad: View {
                 .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Zeigt Tipps zur aktuellen Rechenaufgabe. Der Rechenweg mit den eigenen Zahlen
+/// wird erst auf Wunsch aufgedeckt, damit man es zuerst selbst versuchen kann.
+struct HintSheet: View {
+    let problem: Problem
+    let onClose: () -> Void
+    @State private var showWalkthrough = false
+
+    var body: some View {
+        let hint = problem.hint
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(problem.text)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("So gehst du vor", systemImage: "lightbulb.fill")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                        ForEach(hint.tips, id: \.self) { tip in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("•")
+                                Text(tip)
+                            }
+                        }
+                    }
+
+                    if let mnemonic = hint.mnemonic {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Eselsbrücke", systemImage: "brain.head.profile")
+                                .font(.headline)
+                                .foregroundStyle(.purple)
+                            Text(mnemonic)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.purple.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if showWalkthrough {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Mit deinen Zahlen", systemImage: "list.number")
+                                .font(.headline)
+                                .foregroundStyle(.blue)
+                            ForEach(Array(hint.walkthrough.enumerated()), id: \.offset) { index, step in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text("\(index + 1).")
+                                        .font(.body.monospacedDigit().bold())
+                                    Text(step)
+                                }
+                            }
+                            Text("Den letzten Schritt rechnest du selbst.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        Button {
+                            withAnimation { showWalkthrough = true }
+                        } label: {
+                            Label("An dieser Aufgabe zeigen", systemImage: "eye")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Text("Die Uhr steht, solange der Tipp offen ist.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+            }
+            .navigationTitle(hint.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Weiterrechnen", action: onClose)
+                }
+            }
+        }
     }
 }
