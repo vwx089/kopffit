@@ -208,10 +208,8 @@ final class SessionModel: ObservableObject {
             correct += 1
             wrongInRow = 0
             // "Schnell" heißt: unter 4 Sekunden plus 2 Sekunden pro Stufe.
-            // Mit Tipp gelöst zählt nicht für den Aufstieg, aber auch nicht dagegen.
-            if usedHint {
-                // Serie bleibt stehen
-            } else if elapsed < 4 + Double(level) * 2 {
+            // Ein Tipp ist ungestraft: Die Lesezeit ist schon aus elapsed herausgerechnet.
+            if elapsed < 4 + Double(level) * 2 {
                 fastCorrectInRow += 1
             } else {
                 fastCorrectInRow = 0
