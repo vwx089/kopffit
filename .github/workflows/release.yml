@@ -1,8 +1,8 @@
 name: Build & Release
 
 # Baut bei jeder Änderung an der App eine unsignierte KopfFit.ipa,
-# veröffentlicht sie als GitHub-Release. Die gemeinsame SideStore-Quelle
-# (alle Apps) baut danach .github/workflows/source.yml.
+# veröffentlicht sie als GitHub-Release. Die SideStore-Quelle für alle Apps
+# liegt in github.com/vwx089/vwx089.github.io und holt sich das Release selbst ab.
 on:
   push:
     branches: [main]
@@ -57,10 +57,3 @@ jobs:
           gh release create "v${{ steps.version.outputs.version }}" KopfFit.ipa \
             --title "KopfFit ${{ steps.version.outputs.version }}" \
             --notes "$(git log -1 --pretty=%B)" --latest
-
-      - name: Gemeinsame SideStore-Quelle anhängen
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 sidestore/build_source.py source.json
-          gh release upload "v${{ steps.version.outputs.version }}" source.json --clobber

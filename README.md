@@ -42,20 +42,14 @@ Dann in Xcode: Target **KopfFit › Signing & Capabilities › Team** auswählen
 - Weitere Aufgabentypen: Zahlenreihen merken (Arbeitsgedächtnis), Schätzen, Uhrzeit-Rechnen.
 - Widget auf dem Sperrbildschirm mit Serie und „offen/erledigt“.
 
-## Updates über SideStore (gemeinsame Quelle für alle Apps)
+## Updates über SideStore
 
 Jeder Push auf `main`, der `KopfFit/` oder `project.yml` ändert, startet `.github/workflows/release.yml`:
 GitHub baut eine unsignierte `KopfFit.ipa` und legt ein Release an.
 
-Die SideStore-Quelle enthält **alle Apps** aus `sidestore/apps.json` (zurzeit KopfFit und Motorsound).
-`.github/workflows/source.yml` liest alle 15 Minuten die Releases dieser Repos, baut daraus mit
-`sidestore/build_source.py` eine `source.json` und hängt sie an das neueste KopfFit-Release.
-Die Adresse bleibt dadurch immer dieselbe (einmalig in SideStore › Sources › + hinzufügen):
+Die SideStore-Quelle für alle Apps liegt in [vwx089/vwx089.github.io](https://github.com/vwx089/vwx089.github.io)
+und holt neue Releases alle 15 Minuten ab. Adresse für SideStore:
 
 ```
-https://github.com/vwx089/kopffit/releases/latest/download/source.json
+https://vwx089.github.io/source.json
 ```
-
-**Neue App hinzufügen:** einen Eintrag in `sidestore/apps.json` ergänzen (Repo, Name der `.ipa` im
-Release, Bundle-ID, Texte, Icon). Die App-Repo muss **öffentlich** sein und ihre `.ipa` als
-Release-Datei veröffentlichen, sonst kann SideStore sie nicht laden.
