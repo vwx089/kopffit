@@ -1,7 +1,8 @@
 name: Build & Release
 
 # Baut bei jeder Änderung an der App eine unsignierte KopfFit.ipa,
-# veröffentlicht sie als GitHub-Release und aktualisiert die SideStore-Quelle.
+# veröffentlicht sie als GitHub-Release. Die gemeinsame SideStore-Quelle
+# (alle Apps) baut danach .github/workflows/source.yml.
 on:
   push:
     branches: [main]
@@ -49,51 +50,17 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/KopfFit.app Payload/
           zip -qr KopfFit.ipa Payload
 
-      - name: SideStore-Quelle erzeugen
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          BUILD: ${{ steps.version.outputs.build }}
-          REPO: ${{ github.repository }}
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          SIZE=$(stat -f%z KopfFit.ipa)
-          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          NOTES=$(git log -1 --pretty=%s)
-          python3 - <<PY
-          import json, os
-          repo = os.environ["REPO"]
-          tag = "v" + os.environ["VERSION"]
-          source = {
-              "name": "KopfFit",
-              "identifier": f"io.github.{os.environ['OWNER'].lower()}.kopffit.source",
-              "apps": [{
-                  "name": "KopfFit",
-                  "bundleIdentifier": "de.stefan.kopffit",
-                  "developerName": os.environ["OWNER"],
-                  "subtitle": "Täglich 5 Minuten Kopfrechnen",
-                  "localizedDescription": "Adaptive Kopfrechenaufgaben mit Serie und hartnäckigen Erinnerungen.",
-                  "iconURL": f"https://raw.githubusercontent.com/{repo}/main/KopfFit/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
-                  "tintColor": "#5E5CE6",
-                  "versions": [{
-                      "version": os.environ["VERSION"],
-                      "buildVersion": os.environ["BUILD"],
-                      "date": "$DATE",
-                      "localizedDescription": """$NOTES""",
-                      "downloadURL": f"https://github.com/{repo}/releases/download/{tag}/KopfFit.ipa",
-                      "size": $SIZE,
-                      "minOSVersion": "17.0",
-                  }],
-              }],
-              "news": [],
-          }
-          json.dump(source, open("source.json", "w"), ensure_ascii=False, indent=2)
-          PY
-          cat source.json
-
       - name: Release veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" KopfFit.ipa source.json \
+          gh release create "v${{ steps.version.outputs.version }}" KopfFit.ipa \
             --title "KopfFit ${{ steps.version.outputs.version }}" \
             --notes "$(git log -1 --pretty=%B)" --latest
+
+      - name: Gemeinsame SideStore-Quelle anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 sidestore/build_source.py source.json
+          gh release upload "v${{ steps.version.outputs.version }}" source.json --clobber

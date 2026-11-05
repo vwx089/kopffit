@@ -1,0 +1,45 @@
+name: SideStore-Quelle
+
+# Baut die gemeinsame SideStore-Quelle (alle Apps aus sidestore/apps.json)
+# und hängt sie als source.json an das neueste KopfFit-Release.
+# Dadurch bleibt die Adresse in SideStore immer gleich:
+#   https://github.com/vwx089/kopffit/releases/latest/download/source.json
+# Neue Releases anderer Apps werden alle 15 Minuten abgeholt.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  push:
+    branches: [main]
+    paths: ["sidestore/**", ".github/workflows/source.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sidestore-source
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Quelle bauen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 sidestore/build_source.py source.json
+
+      - name: An neuestes KopfFit-Release hängen (nur bei Änderung)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view --json tagName -q .tagName)
+          if gh release download "$TAG" -p source.json -O old.json 2>/dev/null && cmp -s old.json source.json; then
+            echo "Quelle unverändert ($TAG)."
+          else
+            gh release upload "$TAG" source.json --clobber
+            echo "Quelle aktualisiert ($TAG):"
+            cat source.json
+          fi
