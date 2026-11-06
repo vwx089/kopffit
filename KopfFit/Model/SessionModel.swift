@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 /// Steuert eine laufende Übung: Timer, aktuelle Aufgabe, Eingabe und adaptive Schwierigkeit.
-/// Die ersten 60 % der Zeit wird gerechnet, danach folgt der Block "Zahlen merken".
+/// Die ersten 70 % der Zeit wird gerechnet, danach folgt der Block "Zahlen merken".
 @MainActor
 final class SessionModel: ObservableObject {
     enum Feedback: Equatable {
@@ -46,7 +46,7 @@ final class SessionModel: ObservableObject {
     static let maxSpan = 12
 
     /// Ab dieser Restzeit (Sekunden) wird von Rechnen auf Zahlen merken umgeschaltet.
-    private var memoryStartsAt: Int { totalSeconds * 2 / 5 }
+    private var memoryStartsAt: Int { totalSeconds * 3 / 10 }
 
     /// Nach so vielen Sekunden ohne Eingabe hält der Timer an.
     static let idleLimit: TimeInterval = 15
